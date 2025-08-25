@@ -10,34 +10,34 @@ async function handleChat(userQuery: string) {
     });
 
     // === Step 1: Determine the correct database based on the user's query ===
-    const dbSelectionSystemMessage = `You are an AI assistant for finding result on vtt files of lectures who helps resolving user query.
-     Based on user query only strictly return "ChaiCode-NodeJS" for query related to 'nodejs' and "ChaiCode-Python" for query related to python. You don't have to solve the query just return the database name only. If user query is not related to nodejs or python then strictly return "none". 
-    
-    for ex:
-    user: {"message": "tell me about event loop in nodejs?"},
-    assistant: { "message":"Hanji, To aapko event loop ke bare me janana h. Thoda sochne ka samay de maine ye kaha padhaya h.",  "db":"ChaiCode-NodeJS" }
-    user: {"message": "tell me about vertical scaling?"},
-    assistant: {"message":"Hanji, apko vertical scaling janni hai.",  "db": "ChaiCode-NodeJS" }
-    user: {"message": "tell me about list in rust?"},
-    assistant: {"message":"Hanji, Dekhiye app NodeJs ya Python se related hi question puche.",  "db": "none" }`;
+    // const dbSelectionSystemMessage = `You are an AI assistant for finding result on vtt files of lectures who helps resolving user query.
+    //  Based on user query only strictly return "ChaiCode-NodeJS" for query related to 'nodejs' and "ChaiCode-Python" for query related to python. You don't have to solve the query just return the database name only. If user query is not related to nodejs or python then strictly return "none". 
 
-    const dbSelectionResponse = await client.chat.completions.create({
-        model: "gpt-4.1-nano",
-        messages: [
-            { role: "system", content: dbSelectionSystemMessage },
-            { role: "user", content: userQuery }
-        ],
-    });
+    // for ex:
+    // user: {"message": "tell me about event loop in nodejs?"},
+    // assistant: { "message":"Hanji, To aapko event loop ke bare me janana h. Thoda sochne ka samay de maine ye kaha padhaya h.",  "db":"ChaiCode-NodeJS" }
+    // user: {"message": "tell me about vertical scaling?"},
+    // assistant: {"message":"Hanji, apko vertical scaling janni hai.",  "db": "ChaiCode-NodeJS" }
+    // user: {"message": "tell me about list in rust?"},
+    // assistant: {"message":"Hanji, Dekhiye app NodeJs ya Python se related hi question puche.",  "db": "none" }`;
 
-    const parsedResponse = JSON.parse(
-        dbSelectionResponse.choices[0].message.content || "{}"
-    );
-    const userDB = parsedResponse.db;
-    console.log(userDB);
+    // const dbSelectionResponse = await client.chat.completions.create({
+    //     model: "gpt-4.1-nano",
+    //     messages: [
+    //         { role: "system", content: dbSelectionSystemMessage },
+    //         { role: "user", content: userQuery }
+    //     ],
+    // });
 
-    if (userDB === "none") {
-        return parsedResponse.message || "I can only answer questions about NodeJS or Python.";
-    }
+    // const parsedResponse = JSON.parse(
+    //     dbSelectionResponse.choices[0].message.content || "{}"
+    // );
+    // const userDB = parsedResponse.db;
+    // console.log(userDB);
+
+    // if (userDB === "none") {
+    //     return parsedResponse.message || "I can only answer questions about NodeJS or Python.";
+    // }
 
     // === Step 2: Retrieve relevant context from the selected Qdrant collection ===
     const embeddings = new OpenAIEmbeddings({
@@ -49,13 +49,23 @@ async function handleChat(userQuery: string) {
         embeddings,
         {
             url: process.env.QDRANT_URL,
-            collectionName: userDB,
+            collectionName: "ChaiCode-NodeJS",
+            apiKey: process.env.QDRANT_API_KEY,
+        }
+    );
+    const vectorStore2 = await QdrantVectorStore.fromExistingCollection(
+        embeddings,
+        {
+            url: process.env.QDRANT_URL,
+            collectionName: "ChaiCode-Python",
             apiKey: process.env.QDRANT_API_KEY,
         }
     );
 
     const retriever = vectorStore.asRetriever({ k: 5 });
     const matchedData = await retriever.invoke(userQuery);
+    const retriever2 = vectorStore2.asRetriever({ k: 5 });
+    const matchedData2 = await retriever2.invoke(userQuery);
     //console.log("matched::::::::::", matchedData);
 
     // === Step 3: Generate the final answer using the retrieved context ===
@@ -68,8 +78,11 @@ async function handleChat(userQuery: string) {
     Never answer based on your prior knowledge, always rely on the provided context.
     higlight the lecture and time stamp.
 
-    Context:
+    get result from relevant context. If you don't find any relevant context then just say "I couldn't find the information in the provided lecture content."
+    Context:1
     ${JSON.stringify(matchedData, null, 2)}               
+    Context:2
+    ${JSON.stringify(matchedData2, null, 2)}
     `;
 
     const finalResponse = await client.chat.completions.create({
