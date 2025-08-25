@@ -71,6 +71,7 @@ async function handleChat(userQuery: string) {
     // === Step 3: Generate the final answer using the retrieved context ===
     const finalAnswerSystemPrompt = `
     You are a helpful AI tutor. Your user is asking a question about a video lecture.
+    Start with "Hanji, " to acknowledge the user in a polite way.
     Based ONLY on the provided context from the video transcript below, answer the user's query in a clear and helpful way.
     If the context doesn't contain the answer, state that you couldn't find the information in the provided lecture content.
     For each piece of information you provide, you MUST cite the source lecture and the start time. For example: "Node.js is a JavaScript runtime [lecture: Getting-Started-with-NodeJS, start_time: 00:01:34]."
